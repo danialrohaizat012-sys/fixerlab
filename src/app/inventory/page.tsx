@@ -23,7 +23,8 @@ type Tab = "retail" | "part" | "movements";
 
 export default function InventoryPage() {
   const { db, me } = useStore();
-  const [tab, setTab] = useState<Tab>("retail");
+  const retail = db.settings.retailEnabled;
+  const [tab, setTab] = useState<Tab>(retail ? "retail" : "part");
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");
   const [low, setLow] = useState(false);
@@ -39,7 +40,7 @@ export default function InventoryPage() {
     if (it) {
       const found = db.items.find((i) => i.id === it);
       if (found) {
-        setTab(found.type);
+        setTab(found.type === "retail" && !retail ? "part" : found.type);
         setQ(found.sku);
       }
     }
@@ -69,7 +70,7 @@ export default function InventoryPage() {
     <div>
       <PageHeader
         title="Inventory"
-        subtitle="Retail products and repair spare parts. Every stock change is recorded in the movement ledger."
+        subtitle={retail ? "Retail products and repair spare parts. Every stock change is recorded in the movement ledger." : "Repair spare parts. Parts are deducted when a technician records them on a job; every change is in the movement ledger."}
         actions={
           can(me.role, "inventory.edit") && (
             <Button variant="primary" icon={<PackagePlus className="size-4" />} onClick={() => setEdit("new")}>
@@ -85,7 +86,7 @@ export default function InventoryPage() {
           setCat("");
         }}
         tabs={[
-          { id: "retail", label: <>Retail products {lowCount("retail") > 0 && <AlertTriangle className="size-3.5 text-amber-600" />}</>, count: db.items.filter((i) => i.type === "retail" && i.active).length },
+          ...(retail ? [{ id: "retail" as Tab, label: <>Retail products {lowCount("retail") > 0 && <AlertTriangle className="size-3.5 text-amber-600" />}</>, count: db.items.filter((i) => i.type === "retail" && i.active).length }] : []),
           { id: "part", label: <>Spare parts {lowCount("part") > 0 && <AlertTriangle className="size-3.5 text-amber-600" />}</>, count: db.items.filter((i) => i.type === "part" && i.active).length },
           { id: "movements", label: "Stock movements" },
         ]}
@@ -177,7 +178,7 @@ export default function InventoryPage() {
           </Card>
         </>
       )}
-      {edit && <ItemDialog item={edit === "new" ? undefined : edit} defaultType={tab === "part" ? "part" : "retail"} onClose={() => setEdit(undefined)} />}
+      {edit && <ItemDialog item={edit === "new" ? undefined : edit} defaultType={tab === "retail" ? "retail" : "part"} onClose={() => setEdit(undefined)} />}
       {adjust && <AdjustDialog item={adjust} onClose={() => setAdjust(undefined)} />}
       {history && <HistoryDialog item={history} onClose={() => setHistory(undefined)} />}
     </div>
@@ -298,8 +299,8 @@ function ItemDialog({ item, defaultType, onClose }: { item?: Item; defaultType: 
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Type">
-          <Select value={f.type} onChange={(e) => set({ type: e.target.value as ItemType, category: "" })} disabled={!!item}>
-            <option value="retail">Retail product</option>
+          <Select value={f.type} onChange={(e) => set({ type: e.target.value as ItemType, category: "" })} disabled={!!item || !db.settings.retailEnabled}>
+            {(db.settings.retailEnabled || f.type === "retail") && <option value="retail">Retail product</option>}
             <option value="part">Repair spare part</option>
           </Select>
         </Field>

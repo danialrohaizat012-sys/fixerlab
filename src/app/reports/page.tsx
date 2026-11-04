@@ -62,6 +62,18 @@ export default function ReportsPage() {
 
   if (!can(me.role, "reports.view")) return <Denied what="view reports" />;
   const gp = data.rev.net - data.rev.cogs;
+  const retail = db.settings.retailEnabled;
+  const cards: [string, string, string][] = [
+    ["Net revenue", money(data.rev.net), `${data.rev.count} ${retail ? "transactions" : "repair invoices"}`],
+    ...(retail
+      ? ([
+          ["Retail revenue", money(data.rev.retail), `${data.rev.net ? Math.round((data.rev.retail / data.rev.net) * 100) : 0}% of total`],
+          ["Repair revenue", money(data.rev.repair), "Invoiced at collection"],
+        ] as [string, string, string][])
+      : ([["Average repair invoice", money(data.rev.count ? Math.round(data.rev.repair / data.rev.count) : 0), "Labour + parts + services"]] as [string, string, string][])),
+    ["Refunds", money(data.rev.refunds), "Deducted on refund date"],
+    ["Est. gross profit", money(gp), `${data.rev.net ? Math.round((gp / data.rev.net) * 100) : 0}% margin · after parts cost`],
+  ];
 
   return (
     <div className="space-y-5">
@@ -77,14 +89,8 @@ export default function ReportsPage() {
         }
       />
       <Notice tone="demo">Figures are calculated from fictional sample data.</Notice>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        {[
-          ["Net revenue", money(data.rev.net), `${data.rev.count} transactions`],
-          ["Retail revenue", money(data.rev.retail), `${data.rev.net ? Math.round((data.rev.retail / data.rev.net) * 100) : 0}% of total`],
-          ["Repair revenue", money(data.rev.repair), "Invoiced at collection"],
-          ["Refunds", money(data.rev.refunds), "Deducted on refund date"],
-          ["Est. gross profit", money(gp), `${data.rev.net ? Math.round((gp / data.rev.net) * 100) : 0}% margin · where cost exists`],
-        ].map(([k, v, s]) => (
+      <div className={cx("grid grid-cols-2 gap-3", retail ? "lg:grid-cols-5" : "lg:grid-cols-4")}>
+        {cards.map(([k, v, s]) => (
           <Card key={k} className="p-4">
             <div className="text-[13px] text-ink-3">{k}</div>
             <div className="num mt-1.5 font-display text-2xl font-bold">{v}</div>
@@ -94,9 +100,9 @@ export default function ReportsPage() {
       </div>
 
       <Card>
-        <CardHeader title="Daily sales" subtitle="Retail vs repair revenue per day" />
+        <CardHeader title={retail ? "Daily sales" : "Daily repair revenue"} subtitle={retail ? "Retail vs repair revenue per day" : "Repair invoices issued at collection, per day"} />
         <div className="p-4 sm:p-5">
-          <RevenueBars data={data.series} height={220} />
+          <RevenueBars data={data.series} height={220} showRetail={retail} />
         </div>
       </Card>
 
@@ -157,6 +163,7 @@ export default function ReportsPage() {
             </tbody>
           </Table>
         </Card>
+        {retail && (
         <Card className="lg:col-span-2">
           <CardHeader title="Top retail products" />
           <Table>
@@ -178,6 +185,7 @@ export default function ReportsPage() {
             </tbody>
           </Table>
         </Card>
+        )}
       </div>
     </div>
   );

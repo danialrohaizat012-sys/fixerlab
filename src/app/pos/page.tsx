@@ -15,16 +15,24 @@ import { ReceiptModal } from "@/components/receipt";
 type CartLine = { itemId: string; qty: number };
 
 export default function PosPage() {
-  const { me } = useStore();
-  const [mode, setMode] = useState<"sale" | "collect">("sale");
+  const { me, db } = useStore();
+  const retail = db.settings.retailEnabled;
+  const [mode, setMode] = useState<"sale" | "collect">(retail ? "sale" : "collect");
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("mode") === "collect") setMode("collect");
   }, []);
-  if (!can(me.role, "pos.sell")) return <Denied what="use the cashier POS" />;
+  useEffect(() => {
+    if (!retail) setMode("collect");
+  }, [retail]);
+  if (!can(me.role, "pos.sell")) return <Denied what="use the cashier" />;
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Cashier</h1>
+        <div>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">Cashier</h1>
+          {!retail && <p className="mt-1 text-sm text-ink-3">Collect repair payments and release devices. Deposits are recorded on the repair job.</p>}
+        </div>
+        {retail && (
         <div className="w-full sm:w-auto">
           <Tabs
             value={mode}
@@ -35,8 +43,9 @@ export default function PosPage() {
             ]}
           />
         </div>
+        )}
       </div>
-      {mode === "sale" ? <SaleMode /> : <CollectMode />}
+      {mode === "sale" && retail ? <SaleMode /> : <CollectMode />}
     </div>
   );
 }
@@ -47,7 +56,6 @@ function SaleMode() {
   const { db, me, run, toast } = useStore();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("All");
-  const [showParts, setShowParts] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [discount, setDiscount] = useState(0);
   const [overridePin, setOverridePin] = useState<string>();
@@ -63,11 +71,11 @@ function SaleMode() {
     return db.items.filter(
       (i) =>
         i.active &&
-        (showParts ? i.type === "part" : i.type === "retail") &&
+        i.type === "retail" &&
         (cat === "All" || i.category === cat) &&
         (!s || i.name.toLowerCase().includes(s) || i.sku.toLowerCase().includes(s) || i.barcode === s),
     );
-  }, [db.items, q, cat, showParts]);
+  }, [db.items, q, cat]);
 
   const lines = cart.map((c) => ({ ...c, item: db.items.find((i) => i.id === c.itemId)! })).filter((l) => l.item);
   const subtotal = lines.reduce((s, l) => s + l.item.price * l.qty, 0);
@@ -118,7 +126,7 @@ function SaleMode() {
     return () => window.removeEventListener("keydown", onKey);
   }, [lines.length, checkout]);
 
-  const cats = ["All", ...(showParts ? db.settings.partCategories : db.settings.retailCategories)];
+  const cats = ["All", ...db.settings.retailCategories];
 
   return (
     <div className="grid gap-4 pb-20 lg:grid-cols-[1fr_340px] lg:pb-0 xl:grid-cols-[1fr_400px]">
@@ -164,16 +172,6 @@ function SaleMode() {
               {c}
             </button>
           ))}
-          <span className="mx-1 w-px shrink-0 bg-line" />
-          <button
-            onClick={() => {
-              setShowParts((v) => !v);
-              setCat("All");
-            }}
-            className={cx("shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium", showParts ? "border-brand bg-brand-soft text-ink" : "border-dashed border-line-strong text-ink-3")}
-          >
-            {showParts ? "Showing spare parts" : "Spare parts (counter sale)"}
-          </button>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
           {items.map((i) => {

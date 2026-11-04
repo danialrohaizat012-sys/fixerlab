@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
-  ShoppingCart,
+  Wallet,
   Receipt,
   Wrench,
   Users,
@@ -45,7 +45,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
     group: "Counter",
     items: [
       { href: "/", label: "Dashboard", icon: <LayoutDashboard className="size-[18px]" /> },
-      { href: "/pos", label: "POS / Cashier", icon: <ShoppingCart className="size-[18px]" />, perm: "pos.sell" },
+      { href: "/pos", label: "Cashier", icon: <Wallet className="size-[18px]" />, perm: "pos.sell" },
       { href: "/transactions", label: "Transactions", icon: <Receipt className="size-[18px]" />, perm: "sales.view" },
     ],
   },

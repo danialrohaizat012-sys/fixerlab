@@ -68,6 +68,16 @@ export default function SettingsPage() {
               </Field>
             </div>
           </div>
+          <CardHeader title="Business type" />
+          <div className="space-y-2 p-4 sm:p-5">
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-1" checked={s.retailEnabled} onChange={(e) => set({ retailEnabled: e.target.checked })} />
+              <span>
+                Retail sales (sell accessories / products over the counter)
+                <span className="block text-xs text-ink-3">Off for Fixerlab — repair services only. When off, the cashier handles repair collections and inventory holds spare parts only.</span>
+              </span>
+            </label>
+          </div>
           <CardHeader title="Repair policies" />
           <div className="space-y-3 p-4 sm:p-5">
             <label className="flex items-start gap-2 text-sm">
@@ -124,7 +134,7 @@ export default function SettingsPage() {
                 ["Retail product categories", "retailCategories", newRetailCat, setNewRetailCat],
                 ["Spare part categories", "partCategories", newPartCat, setNewPartCat],
               ] as const
-            ).map(([label, key, val, setVal]) => (
+            ).filter(([, key]) => key !== "retailCategories" || s.retailEnabled).map(([label, key, val, setVal]) => (
               <div key={key}>
                 <div className="mb-1.5 text-[13px] font-medium text-ink-2">{label}</div>
                 <div className="flex flex-wrap gap-1.5">

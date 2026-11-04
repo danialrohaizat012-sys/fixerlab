@@ -34,6 +34,7 @@ export default function Dashboard() {
   const isTech = me.role === "technician";
   const showMoney = can(me.role, "sales.view");
   const showMonth = can(me.role, "reports.view");
+  const retail = db.settings.retailEnabled;
   const visibleJobs = db.jobs.filter((j) => canViewJob(me, j));
   const attention = visibleJobs
     .filter((j) => ["awaiting_approval", "ready", "quality_check", "received"].includes(j.status) || (isTech && OPEN_STATUSES.includes(j.status)))
@@ -65,8 +66,8 @@ export default function Dashboard() {
           )}
           {can(me.role, "pos.sell") && (
             <Link href="/pos">
-              <Button variant="primary" icon={<ShoppingCart className="size-4" />}>
-                Open POS
+              <Button variant="primary" icon={<Wallet className="size-4" />}>
+                Cashier
               </Button>
             </Link>
           )}
@@ -76,9 +77,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {showMoney ? (
           <>
-            <Stat label="Today's sales" value={money(st.today.net)} sub={`${st.today.count} transactions`} icon={<TrendingUp className="size-4" />} tone="brand" href="/transactions" />
+            <Stat label={retail ? "Today's sales" : "Today's revenue"} value={money(st.today.net)} sub={`${st.today.count} ${retail ? "transactions" : "repair invoices"}`} icon={<TrendingUp className="size-4" />} tone="brand" href="/transactions" />
             {showMonth ? (
-              <Stat label="This month" value={money(st.month.net)} sub={`Retail ${money(st.month.retail)} · Repair ${money(st.month.repair)}`} icon={<Receipt className="size-4" />} href="/reports" />
+              <Stat label="This month" value={money(st.month.net)} sub={retail ? `Retail ${money(st.month.retail)} · Repair ${money(st.month.repair)}` : `${st.month.count} repair invoices`} icon={<Receipt className="size-4" />} href="/reports" />
             ) : (
               <Stat label="Transactions today" value={st.today.count} icon={<Receipt className="size-4" />} />
             )}
@@ -98,7 +99,7 @@ export default function Dashboard() {
           </>
         )}
         {can(me.role, "inventory.view") && (
-          <Stat label="Low-stock items" value={st.lowStock.length} sub="At or below minimum" icon={<AlertTriangle className="size-4" />} tone={st.lowStock.length ? "warn" : undefined} href="/inventory?low=1" />
+          <Stat label={retail ? "Low-stock items" : "Low-stock spare parts"} value={st.lowStock.length} sub="At or below minimum" icon={<AlertTriangle className="size-4" />} tone={st.lowStock.length ? "warn" : undefined} href="/inventory?low=1" />
         )}
         {showMoney && <Stat label="Completed transactions (month)" value={st.month.count} icon={<Receipt className="size-4" />} href="/transactions" />}
       </div>
@@ -106,9 +107,9 @@ export default function Dashboard() {
       <div className="grid gap-5 xl:grid-cols-[1.6fr_1fr]">
         {showMoney ? (
           <Card>
-            <CardHeader title="Revenue — last 14 days" subtitle="Repair revenue is recognised when the invoice is issued at collection (deposits excluded)." />
+            <CardHeader title={retail ? "Revenue — last 14 days" : "Repair revenue — last 14 days"} subtitle="Repair revenue is recognised when the invoice is issued at collection (deposits excluded)." />
             <div className="p-4 sm:p-5">
-              <RevenueBars data={series} />
+              <RevenueBars data={series} showRetail={retail} />
             </div>
           </Card>
         ) : (
@@ -169,8 +170,11 @@ export default function Dashboard() {
                 <li key={s.id}>
                   <Link href={`/transactions?r=${s.id}`} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-surface-2">
                     <span className="font-mono text-xs">{s.receiptNo}</span>
-                    <Badge tone={s.kind === "repair" ? "violet" : "slate"}>{s.kind === "repair" ? "Repair" : "Retail"}</Badge>
-                    <span className="truncate text-ink-3">{s.lines.map((l) => l.description).join(", ")}</span>
+                    {retail && <Badge tone={s.kind === "repair" ? "violet" : "slate"}>{s.kind === "repair" ? "Repair" : "Retail"}</Badge>}
+                    <span className="truncate text-ink-3">
+                      {s.kind === "repair" && <span className="mr-1 font-mono text-xs text-ink-2">{db.jobs.find((j) => j.id === s.repairJobId)?.jobNo}</span>}
+                      {s.lines.map((l) => l.description).join(", ")}
+                    </span>
                     <span className="ml-auto shrink-0 text-xs text-ink-3">{fmtTime(s.at)}</span>
                     <span className="num w-24 shrink-0 text-right font-medium">{money(s.total)}</span>
                   </Link>
@@ -187,7 +191,7 @@ export default function Dashboard() {
                 <li key={i.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                   <AlertTriangle className={cx("size-4 shrink-0", i.stock <= 0 ? "text-red-600" : "text-amber-600")} />
                   <span className="min-w-0 flex-1 truncate">{i.name}</span>
-                  <Badge tone={i.type === "part" ? "blue" : "slate"}>{i.type === "part" ? "Part" : "Retail"}</Badge>
+                  {retail && <Badge tone={i.type === "part" ? "blue" : "slate"}>{i.type === "part" ? "Part" : "Retail"}</Badge>}
                   <span className="num w-24 text-right">
                     <span className="font-semibold">{i.stock}</span> <span className="text-ink-3">/ min {i.minStock}</span>
                   </span>

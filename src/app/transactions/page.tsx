@@ -64,9 +64,9 @@ export default function TransactionsPage() {
           <option value="all">All time</option>
         </Select>
         <Select value={kind} onChange={(e) => setKind(e.target.value)} className="w-auto">
-          <option value="">Retail & repair</option>
-          <option value="retail">Retail only</option>
-          <option value="repair">Repair only</option>
+          <option value="">{db.settings.retailEnabled ? "Retail & repair" : "All invoices"}</option>
+          {db.settings.retailEnabled && <option value="retail">Retail only</option>}
+          {db.settings.retailEnabled && <option value="repair">Repair only</option>}
           <option value="outstanding">With outstanding balance</option>
         </Select>
         <Select value={method} onChange={(e) => setMethod(e.target.value)} className="w-auto">

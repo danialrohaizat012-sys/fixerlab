@@ -7,7 +7,8 @@ import { money } from "@/lib/format";
  * Stacked daily revenue bars (retail + repair). Two series → legend always shown;
  * tooltip on hover/focus; values stay in text ink, never series colour.
  */
-export function RevenueBars({ data, height = 200 }: { data: { key: string; retail: number; repair: number }[]; height?: number }) {
+export function RevenueBars({ data, height = 200, showRetail = true }: { data: { key: string; retail: number; repair: number }[]; height?: number; showRetail?: boolean }) {
+  const repairColor = showRetail ? "var(--chart-2)" : "var(--chart-1)";
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(1, ...data.map((d) => d.retail + d.repair));
   const nice = niceMax(max);
@@ -20,17 +21,26 @@ export function RevenueBars({ data, height = 200 }: { data: { key: string; retai
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-ink-2">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="size-2.5 rounded-sm" style={{ background: "var(--chart-1)" }} /> Retail
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="size-2.5 rounded-sm" style={{ background: "var(--chart-2)" }} /> Repair
-        </span>
+        {showRetail && (
+          <>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2.5 rounded-sm" style={{ background: "var(--chart-1)" }} /> Retail
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2.5 rounded-sm" style={{ background: "var(--chart-2)" }} /> Repair
+            </span>
+          </>
+        )}
         <span className="ml-auto min-h-4 text-ink-2">
           {h ? (
             <>
-              <span className="font-medium text-ink">{label(h.key)}</span> · Retail <span className="num">{money(h.retail)}</span> · Repair{" "}
-              <span className="num">{money(h.repair)}</span> · Total <span className="num font-semibold text-ink">{money(h.retail + h.repair)}</span>
+              <span className="font-medium text-ink">{label(h.key)}</span>
+              {showRetail && (
+                <>
+                  {" "}· Retail <span className="num">{money(h.retail)}</span> · Repair <span className="num">{money(h.repair)}</span>
+                </>
+              )}{" "}
+              · Total <span className="num font-semibold text-ink">{money(h.retail + h.repair)}</span>
             </>
           ) : (
             <span className="text-ink-3">Hover a bar for details</span>
@@ -51,7 +61,7 @@ export function RevenueBars({ data, height = 200 }: { data: { key: string; retai
               <div key={t} className="border-t border-line" />
             ))}
           </div>
-          <div className="relative flex items-end gap-[3px]" style={{ height }} role="img" aria-label="Daily revenue, retail and repair">
+          <div className="relative flex items-end gap-[3px]" style={{ height }} role="img" aria-label={showRetail ? "Daily revenue, retail and repair" : "Daily repair revenue"}>
             {data.map((d, i) => {
               const rh = (d.retail / nice) * height;
               const ph = (d.repair / nice) * height;
@@ -63,10 +73,10 @@ export function RevenueBars({ data, height = 200 }: { data: { key: string; retai
                   onMouseLeave={() => setHover(null)}
                   onFocus={() => setHover(i)}
                   onBlur={() => setHover(null)}
-                  aria-label={`${label(d.key)}: retail ${money(d.retail)}, repair ${money(d.repair)}`}
+                  aria-label={showRetail ? `${label(d.key)}: retail ${money(d.retail)}, repair ${money(d.repair)}` : `${label(d.key)}: ${money(d.repair)}`}
                 >
                   <span className={`flex flex-col justify-end gap-[2px] ${hover === i ? "opacity-100" : hover !== null ? "opacity-60" : ""}`}>
-                    {ph > 0 && <span className="block rounded-t-[4px]" style={{ height: Math.max(2, ph), background: "var(--chart-2)" }} />}
+                    {ph > 0 && <span className="block rounded-t-[4px]" style={{ height: Math.max(2, ph), background: repairColor }} />}
                     {rh > 0 && <span className={`block ${ph > 0 ? "" : "rounded-t-[4px]"}`} style={{ height: Math.max(2, rh), background: "var(--chart-1)" }} />}
                   </span>
                 </button>

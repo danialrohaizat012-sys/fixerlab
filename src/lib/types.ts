@@ -291,6 +291,8 @@ export interface Settings {
   taxLabel: string;
   taxRatePct: number;
   paymentMethods: PaymentMethod[];
+  /** Fixerlab is repair-only: retail product sales are switched off unless enabled in Settings. */
+  retailEnabled: boolean;
   retailCategories: string[];
   partCategories: string[];
   deviceCategories: DeviceCategory[];

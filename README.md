@@ -2,24 +2,26 @@
 
 Demonstration prototype developed by **BinaLab** for Fixerlab Solutions, an electronic device repair and retail business in Putrajaya, Malaysia.
 
+> **Fixerlab is a repair-only business.** Retail product sales are switched **off** by default (Settings → Business type). The cashier handles repair collections, and inventory holds spare parts only. The retail module remains available behind that switch if Fixerlab later sells accessories.
+
 > **Status:** Phase 2 — Interactive prototype. All data is **fictional sample data** stored only in the viewer's browser. No real payment gateway, database or client system is connected.
 
 ## What's in the prototype
 
 | Module | Highlights |
 |---|---|
-| **Dashboard** | Today's / monthly sales, active repairs, pending approvals, ready for collection, low stock, outstanding balances, 14-day retail vs repair chart |
-| **POS / Cashier** | Barcode/SKU search (F2), categories, cart, discounts with owner PIN override, split payments, cash change, F9 to charge, idempotent checkout, 80mm receipt |
-| **Collect Repair** | Final invoice from the approved quotation, deposits applied, balance payment, warranty issued, job completed |
+| **Dashboard** | Today's / monthly repair revenue, active repairs, pending approvals, ready for collection, low-stock parts, outstanding balances, 14-day revenue chart |
+| **Cashier (Collect Repair)** | Final invoice from the approved quotation, deposits applied, split payments, cash change, idempotent submission, warranty issued, 80mm receipt, job completed |
+| **Retail POS (off by default)** | Barcode/SKU search, cart, discounts with owner PIN override — only shown if retail sales are enabled in Settings |
 | **Repair jobs** | Intake form (customer lookup by phone, device, accessories, condition, photos, deposit), kanban board + list, status workflow with enforced transitions, full timeline, intake slip print |
 | **Quotations** | Versioned (v1, v2…), draft → sent → approved/rejected/expired, explicit approval record (channel, who, when), clearly-labelled simulated approval |
-| **Inventory** | Retail products & spare parts, add/edit/deactivate, receive & adjust stock, movement ledger, low-stock alerts, no negative stock unless allowed |
+| **Inventory** | Repair spare parts, add/edit/deactivate, receive & adjust stock, movement ledger, low-stock alerts, no negative stock unless allowed |
 | **Customers** | Search by name/phone, purchase & repair history, devices, outstanding balance, warranty |
 | **Warranty** | Records created at collection from configurable rules, claims with owner decision |
-| **Reports** | Daily sales, payment methods, retail vs repair, job volume, technician workload, inventory movement, gross profit estimate |
+| **Reports** | Daily repair revenue, payment methods, average invoice, job volume, technician workload, inventory movement, gross profit estimate |
 | **Staff & roles** | Owner / Cashier / Technician permission matrix, discount limits, activate/deactivate |
 | **Settings** | Business info, receipt footer, tax (off by default), payment methods, categories, numbering prefixes, repair policies, warranty rules |
-| **Demo scenarios** | Guided walkthroughs A (retail), B (iPhone screen), C (PS5 overheating) with live progress and fast-forward |
+| **Demo scenarios** | Guided walkthroughs: iPhone screen replacement and PS5 overheating, with live progress and fast-forward (the retail scenario appears only if retail is enabled) |
 
 ## Running locally
 

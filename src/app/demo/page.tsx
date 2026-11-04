@@ -86,7 +86,8 @@ export default function DemoPage() {
   const sinceA = starts.A;
   const chargerSale = sinceA ? db.sales.find((s) => s.kind === "retail" && s.at >= sinceA && s.lines.some((l) => l.itemId === "it_R-CHG-20W")) : undefined;
   const chargerMove = chargerSale ? db.movements.find((m) => m.refNo === chargerSale.receiptNo && m.itemId === "it_R-CHG-20W") : undefined;
-  const charger = db.items.find((i) => i.id === "it_R-CHG-20W")!;
+  const retail = db.settings.retailEnabled;
+  const charger = db.items.find((i) => i.id === "it_R-CHG-20W") ?? { stock: 0 };
   const stepsA: Step[] = [
     { label: "Open POS and select “USB-C 20W Fast Charger” (or scan R-CHG-20W)", who: "st_cashier", done: !!chargerSale, href: "/pos", hint: "Tap the product card or type R-CHG-20W and press Enter." },
     { label: "Charge → record payment (e.g. Cash RM50, change shown)", who: "st_cashier", done: !!chargerSale, href: "/pos" },
@@ -110,7 +111,13 @@ export default function DemoPage() {
         Tip for presenters: switch roles from the top bar (Owner · Cashier · Technician) to show that each person only sees and can do what their role allows. Owner PIN for overrides: <b>1234</b>.
       </Notice>
 
-      <div className="grid gap-5 xl:grid-cols-3">
+      {!retail && (
+        <Notice>
+          Fixerlab is a repair-only business, so the retail sale scenario is hidden and retail selling is switched off (Settings → Retail sales). The two scenarios below cover the full repair workflow.
+        </Notice>
+      )}
+      <div className={cx("grid gap-5", retail ? "xl:grid-cols-3" : "lg:grid-cols-2")}>
+        {retail && (
         <ScenarioCard
           letter="A"
           icon={<ShoppingCart className="size-5" />}
@@ -127,8 +134,9 @@ export default function DemoPage() {
         >
           <StepList steps={stepsA} />
         </ScenarioCard>
-        <RepairScenarioCard sc={SCENARIO_B} letter="B" icon={<Smartphone className="size-5" />} since={starts.B} onStart={() => start("B")} />
-        <RepairScenarioCard sc={SCENARIO_C} letter="C" icon={<Gamepad2 className="size-5" />} since={starts.C} onStart={() => start("C")} />
+        )}
+        <RepairScenarioCard sc={SCENARIO_B} letter={retail ? "B" : "A"} icon={<Smartphone className="size-5" />} since={starts.B} onStart={() => start("B")} />
+        <RepairScenarioCard sc={SCENARIO_C} letter={retail ? "C" : "B"} icon={<Gamepad2 className="size-5" />} since={starts.C} onStart={() => start("C")} />
       </div>
     </div>
   );

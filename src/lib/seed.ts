@@ -22,7 +22,7 @@ import type {
 } from "./types";
 import { myPeriod } from "./format";
 
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 // Deterministic PRNG so every reset produces the same demo story.
 function rng(seed: number) {
@@ -45,24 +45,6 @@ function myt(daysAgo: number, hour: number, minute = 0): string {
   // Never generate history in the future (e.g. when the demo is reset before opening hours).
   return new Date(daysAgo >= 0 ? Math.min(t, Date.now() - 20 * 60_000) : t).toISOString();
 }
-
-const RETAIL: [string, string, string, number, number, number, number][] = [
-  // sku, name, category, cost, price, stock(final), min
-  ["R-CHG-20W", "USB-C 20W Fast Charger", "Chargers", 1800, 3900, 24, 5],
-  ["R-CHG-65W", "65W GaN Charger (3-port)", "Chargers", 4500, 8900, 8, 3],
-  ["R-CBL-CC1", "USB-C to USB-C Cable 1m", "Cables", 600, 1900, 40, 10],
-  ["R-CBL-CL1", "USB-C to Lightning Cable 1m", "Cables", 900, 2500, 30, 10],
-  ["R-CBL-MIC", "Micro-USB Cable 1m", "Cables", 300, 1000, 3, 5],
-  ["R-CAS-IP15", "iPhone 15 Clear Case", "Cases", 500, 2500, 15, 5],
-  ["R-CAS-S24", "Galaxy S24 Armour Case", "Cases", 800, 3500, 6, 3],
-  ["R-TG-IP15", "Tempered Glass — iPhone 15", "Screen Protection", 200, 1500, 50, 15],
-  ["R-TG-PRV", "Privacy Tempered Glass (universal fit)", "Screen Protection", 400, 2500, 2, 10],
-  ["R-PB-10K", "Power Bank 10,000mAh", "Power & Audio", 3500, 6900, 10, 3],
-  ["R-EAR-TWS", "Wireless Earbuds", "Power & Audio", 4000, 8900, 7, 3],
-  ["R-MOU-WL", "Wireless Mouse", "Computer Accessories", 1500, 3500, 12, 4],
-  ["R-HUB-C7", "USB-C 7-in-1 Hub", "Computer Accessories", 5500, 11900, 5, 2],
-  ["R-GRP-CTL", "Controller Thumb Grips (pair)", "Gaming Accessories", 300, 1500, 20, 5],
-];
 
 const PARTS: [string, string, string, number, number, number, number][] = [
   ["P-SCR-IP13", "iPhone 13 Screen Assembly (OLED)", "Screens", 28000, 45000, 3, 2],
@@ -96,9 +78,6 @@ export function createSeed(): DbState {
   ];
 
   const items: Item[] = [
-    ...RETAIL.map(([sku, name, category, cost, price, stock, min]) => ({
-      id: `it_${sku}`, type: "retail" as const, sku, barcode: `955000${String(idc++).padStart(6, "0")}`, name, category, cost, price, stock, minStock: min, allowNegative: false, active: true,
-    })),
     ...PARTS.map(([sku, name, category, cost, price, stock, min]) => ({
       id: `it_${sku}`, type: "part" as const, sku, name, category, cost, price, stock, minStock: min, allowNegative: false, active: true,
     })),
@@ -114,39 +93,26 @@ export function createSeed(): DbState {
     ["Hafiz Rahman", "019-555 0106"],
     ["Mariam Yusof", "012-555 0107"],
     ["Kevin Raj", "014-555 0108", "kevin.sample@example.com"],
-  ].map(([name, phone, email], i) => ({ id: `cu_s${i + 1}`, name, phone, email, sample: true, createdAt: myt(60 - i * 5, 11) }));
+    ["Nurul Izzah Ahmad", "012-555 0109"],
+    ["Lee Chong Ming", "016-555 0110"],
+    ["Arjun Pillai", "017-555 0111"],
+    ["Siti Khadijah Omar", "019-555 0112"],
+    ["Wong Jia Hui", "011-5550 0113", "jiahui.sample@example.com"],
+    ["Amirul Hakimi Zainal", "013-555 0114"],
+    ["Farah Nadia Ismail", "012-555 0115"],
+    ["Rajesh Kumar", "014-555 0116"],
+    ["Ong Kai Wen", "016-555 0117"],
+    ["Aina Sofea Rosli", "017-555 0118"],
+    ["Ahmad Syafiq Hamdan", "019-555 0119"],
+    ["Chloe Tan Hui Min", "011-5550 0120"],
+  ].map(([name, phone, email], i) => ({ id: `cu_s${i + 1}`, name, phone, email, sample: true, createdAt: myt(90 - i * 3, 11) }));
 
   const movements: StockMovement[] = [];
   const sales: Sale[] = [];
   const payments: Payment[] = [];
   const pendingMoves: { sale: Sale; itemId: string; qty: number; at: string }[] = [];
 
-  // ── Retail history: 30 days ──
-  const methods = ["pm_cash", "pm_cash", "pm_duitnow", "pm_duitnow", "pm_card", "pm_transfer"];
-  for (let d = 30; d >= 0; d--) {
-    const n = d === 0 ? 3 : 2 + Math.floor(r() * 5);
-    for (let k = 0; k < n; k++) {
-      const at = myt(d, 10 + Math.floor(r() * (d === 0 ? 1 : 11)), Math.floor(r() * 60));
-      const lines: SaleLine[] = [];
-      const count = 1 + Math.floor(r() * 2);
-      for (let c = 0; c < count; c++) {
-        const it = pick(items.filter((i) => i.type === "retail"));
-        if (lines.some((l) => l.itemId === it.id)) continue;
-        lines.push({ id: id("sl_"), type: "product", itemId: it.id, description: it.name, qty: r() < 0.85 ? 1 : 2, unitPrice: it.price, unitCost: it.cost, refundedQty: 0 });
-      }
-      const subtotal = lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
-      const discount = r() < 0.12 ? Math.round(subtotal * 0.05) : 0;
-      const sale: Sale = {
-        id: id("sa_"), receiptNo: "", kind: "retail", cashierId: r() < 0.7 ? "st_cashier" : "st_owner", lines, subtotal, discount,
-        discountAuthorizedBy: discount ? "st_cashier" : undefined, tax: 0, total: subtotal - discount,
-        cogs: lines.reduce((s, l) => s + l.qty * l.unitCost, 0), status: "completed", idempotencyKey: id("seed_"), at,
-      };
-      if (r() < 0.3) sale.customerId = pick(customers).id;
-      sales.push(sale);
-      payments.push({ id: id("py_"), saleId: sale.id, kind: "payment", methodId: pick(methods), amount: sale.total, receivedBy: sale.cashierId, at });
-      for (const l of lines) pendingMoves.push({ sale, itemId: l.itemId!, qty: -l.qty, at });
-    }
-  }
+  const methods = ["pm_cash", "pm_cash", "pm_duitnow", "pm_duitnow", "pm_card", "pm_card", "pm_transfer"];
 
   // ── Repair history ──
   const devices: Device[] = [];
@@ -172,6 +138,9 @@ export function createSeed(): DbState {
     parts?: [string, number][];
     deposit?: number;
     warrantyRule?: string;
+    payMethod?: string;
+    /** Days from intake to the last status (defaults to most of the job's age). */
+    turnaround?: number;
     estCost: number;
     notes?: string;
   }
@@ -244,6 +213,44 @@ export function createSeed(): DbState {
     },
   ];
 
+  // ── Generated completed-repair history (last ~30 days) so dashboards and reports have data ──
+  type Tpl = Omit<JobSpec, "cust" | "path" | "startDaysAgo" | "tech">;
+  const TEMPLATES: Tpl[] = [
+    { device: { category: "Smartphone", brand: "Apple", model: "iPhone 13", color: "Blue" }, problem: "Cracked screen", condition: "Screen cracked", accessories: [], diagnosis: "Display assembly damaged.", quote: { lines: [["part", "iPhone 13 Screen Assembly (OLED)", 1, 45000, "P-SCR-IP13"], ["labour", "Screen replacement labour", 1, 5000]], decision: "approved" }, parts: [["P-SCR-IP13", 1]], estCost: 50000 },
+    { device: { category: "Smartphone", brand: "Apple", model: "iPhone 12", color: "White" }, problem: "Battery drains quickly", condition: "Good", accessories: [], diagnosis: "Battery health 70%.", quote: { lines: [["part", "iPhone 12 Battery", 1, 15000, "P-BAT-IP12"], ["labour", "Battery replacement labour", 1, 3000]], decision: "approved" }, parts: [["P-BAT-IP12", 1]], estCost: 18000 },
+    { device: { category: "Smartphone", brand: "Apple", model: "iPhone 13 Pro", color: "Graphite" }, problem: "Phone shuts down at 20%", condition: "Minor scuffs", accessories: ["Case / cover"], diagnosis: "Battery degraded.", quote: { lines: [["part", "iPhone 13 Battery", 1, 16000, "P-BAT-IP13"], ["labour", "Battery replacement labour", 1, 3000]], decision: "approved" }, parts: [["P-BAT-IP13", 1]], estCost: 19000 },
+    { device: { category: "Smartphone", brand: "Samsung", model: "Galaxy S22", color: "Green" }, problem: "Charging intermittent", condition: "Good", accessories: [], diagnosis: "Charging port flex worn.", quote: { lines: [["part", "Galaxy S22 Charging Port Flex", 1, 9000, "P-PRT-S22"], ["labour", "Port replacement labour", 1, 3000]], decision: "approved" }, parts: [["P-PRT-S22", 1]], estCost: 12000 },
+    { device: { category: "Smartphone", brand: "Xiaomi", model: "Redmi Note 12", color: "Grey" }, problem: "Not charging", condition: "Back cover scratched", accessories: [], diagnosis: "USB-C port damaged.", quote: { lines: [["part", "USB-C Port (board-level, generic)", 1, 4000, "P-PRT-UNI"], ["labour", "Micro-soldering labour", 1, 4000]], decision: "approved" }, parts: [["P-PRT-UNI", 1]], estCost: 8000 },
+    { device: { category: "Smartphone", brand: "Samsung", model: "Galaxy A54", color: "Black" }, problem: "Screen lines after drop", condition: "Corner dent", accessories: [], diagnosis: "LCD/OLED damaged.", quote: { lines: [["part", "Galaxy A54 Screen Assembly", 1, 28000, "P-SCR-A54"], ["labour", "Screen replacement labour", 1, 5000]], decision: "approved" }, parts: [["P-SCR-A54", 1]], estCost: 33000 },
+    { device: { category: "Laptop", brand: "Asus", model: "VivoBook 15", color: "Silver" }, problem: "Very slow, wants upgrade", condition: "Good", accessories: ["Charger"], diagnosis: "HDD ageing; SSD upgrade advised.", quote: { lines: [["part", "NVMe SSD 512GB", 1, 26000, "P-SSD-512"], ["labour", "Installation & data migration", 1, 8000]], decision: "approved" }, parts: [["P-SSD-512", 1]], estCost: 34000 },
+    { device: { category: "Laptop", brand: "Acer", model: "Aspire 5", color: "Black" }, problem: "Loud fan and overheating", condition: "Dusty vents", accessories: ["Charger"], diagnosis: "Fan bearing worn.", quote: { lines: [["part", "Laptop Cooling Fan (generic)", 1, 8000, "P-FAN-LT"], ["part", "Thermal Paste (service use)", 1, 1500, "P-THM-PST"], ["labour", "Fan replacement & cleaning", 1, 6000]], decision: "approved" }, parts: [["P-FAN-LT", 1], ["P-THM-PST", 1]], estCost: 15500 },
+    { device: { category: "Laptop", brand: "Lenovo", model: "ThinkPad E14", color: "Black" }, problem: "Windows fails to boot", condition: "Good", accessories: ["Charger"], diagnosis: "Corrupted OS; drive healthy.", quote: { lines: [["service", "OS reinstall & data backup", 1, 12000]], decision: "approved" }, estCost: 12000 },
+    { device: { category: "Gaming Console", brand: "Sony", model: "PlayStation 5", color: "White" }, problem: "No display output", condition: "Good", accessories: ["HDMI cable"], diagnosis: "HDMI port pins damaged.", quote: { lines: [["part", "PS5 HDMI Port", 1, 6000, "P-PS5-HDMI"], ["labour", "HDMI port micro-soldering", 1, 12000]], decision: "approved" }, parts: [["P-PS5-HDMI", 1]], estCost: 18000 },
+    { device: { category: "Gaming Console", brand: "Sony", model: "PlayStation 4 Pro", color: "Black" }, problem: "Loud and hot", condition: "Dusty", accessories: [], diagnosis: "Dust build-up, dried paste.", quote: { lines: [["part", "Thermal Paste (service use)", 1, 1500, "P-THM-PST"], ["labour", "Deep clean & re-paste", 1, 8000]], decision: "approved" }, parts: [["P-THM-PST", 1]], estCost: 9500 },
+    { device: { category: "Gaming Console", brand: "Nintendo", model: "Switch", color: "Neon" }, problem: "Joy-Con drift", condition: "Good", accessories: ["Left Joy-Con"], diagnosis: "Analog stick worn.", quote: { lines: [["service", "Joy-Con analog stick replacement", 1, 7000]], decision: "approved" }, estCost: 7000 },
+    { device: { category: "Tablet", brand: "Apple", model: "iPad (9th gen)", color: "Silver" }, problem: "Cracked touch glass", condition: "Cracked digitizer", accessories: [], diagnosis: "Digitizer replacement.", quote: { lines: [["part", "iPad 9th Gen Digitizer", 1, 18000, "P-DIG-IPD9"], ["labour", "Digitizer replacement labour", 1, 6000]], decision: "approved" }, parts: [["P-DIG-IPD9", 1]], estCost: 24000 },
+  ];
+  const histCount = 34;
+  for (let k = 0; k < histCount; k++) {
+    const t = pick(TEMPLATES);
+    const readyOnly = k < 2; // a couple of devices waiting at the counter
+    const turnaround = readyOnly ? 0.8 : 1 + Math.floor(r() * 4);
+    const startDaysAgo = readyOnly ? 1 : Math.ceil(turnaround) + Math.floor(r() * 30);
+    specs.push({
+      ...t,
+      cust: 8 + Math.floor(r() * (customers.length - 8)),
+      tech: r() < 0.5 ? "st_tech1" : "st_tech2",
+      path: readyOnly
+        ? ["received", "diagnosing", "awaiting_approval", "in_progress", "quality_check", "ready"]
+        : ["received", "diagnosing", "awaiting_approval", "in_progress", "quality_check", "ready", "completed"],
+      startDaysAgo,
+      turnaround,
+      deposit: r() < 0.35 ? 5000 : undefined,
+      warrantyRule: t.parts ? (r() < 0.5 ? "wrr_parts" : "wrr_labour") : r() < 0.5 ? "wrr_labour" : undefined,
+      payMethod: pick(methods),
+    });
+  }
+
   specs.forEach((s, idx) => {
     const cust = customers[s.cust];
     const dev: Device = { id: `dv_s${idx}`, customerId: cust.id, ...s.device };
@@ -256,7 +263,7 @@ export function createSeed(): DbState {
       photos: [], createdBy: "st_cashier", createdAt, updatedAt: createdAt,
     };
     // Spread status changes across the job's lifetime (never into the future).
-    const span = Math.max(1, s.startDaysAgo) * 24 * 3_600_000 * 0.85;
+    const span = (s.turnaround ?? Math.max(1, s.startDaysAgo) * 0.85) * 24 * 3_600_000;
     const step = span / Math.max(1, s.path.length);
     let prev: RepairStatus | undefined;
     s.path.forEach((st, i) => {
@@ -303,7 +310,7 @@ export function createSeed(): DbState {
       sales.push(sale);
       job.saleId = sale.id;
       for (const p of payments) if (p.repairJobId === job.id && p.kind === "deposit") p.saleId = sale.id;
-      payments.push({ id: id("py_"), saleId: sale.id, repairJobId: job.id, kind: "payment", methodId: "pm_card", amount: subtotal - (s.deposit ?? 0), receivedBy: "st_cashier", at });
+      payments.push({ id: id("py_"), saleId: sale.id, repairJobId: job.id, kind: "payment", methodId: s.payMethod ?? "pm_card", amount: subtotal - (s.deposit ?? 0), receivedBy: "st_cashier", at });
       if (s.warrantyRule) {
         const days = s.warrantyRule === "wrr_parts" ? 90 : 30;
         warranties.push({
@@ -371,7 +378,8 @@ export function createSeed(): DbState {
         { id: "pm_card", name: "Debit / Credit Card", isCash: false, active: true },
         { id: "pm_ewallet", name: "E-Wallet (Other)", isCash: false, active: true },
       ],
-      retailCategories: Array.from(new Set(RETAIL.map((x) => x[2]))),
+      retailCategories: ["Accessories", "Cables & Chargers"],
+      retailEnabled: false,
       partCategories: Array.from(new Set(PARTS.map((x) => x[2]))),
       deviceCategories: ["Smartphone", "Tablet", "Laptop", "Gaming Console", "Other"],
       prefixes: { receipt: "RCP", job: "JOB", quote: "QUO", warranty: "WTY", refund: "RFD" },

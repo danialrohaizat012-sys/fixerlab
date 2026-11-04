@@ -237,6 +237,7 @@ export function completeSale(db: DbState, input: CompleteSaleInput): Sale {
   const a = requirePerm(db, "pos.sell");
   const prior = db.processedKeys[input.idempotencyKey];
   if (prior) return db.sales.find((s) => s.id === prior)!; // duplicate submission → original sale
+  if (!db.settings.retailEnabled) throw new ServiceError("Retail sales are switched off for this business (Settings → Retail sales).");
 
   if (!input.lines.length) throw new ServiceError("Cart is empty.");
   const lines: SaleLine[] = input.lines.map((l) => {
@@ -748,6 +749,7 @@ export function collectRepair(db: DbState, jobId: string, input: CollectInput) {
 export function saveItem(db: DbState, item: Omit<Item, "id" | "stock"> & { id?: string; openingStock?: number }) {
   requirePerm(db, "inventory.edit");
   if (!item.sku.trim() || !item.name.trim()) throw new ServiceError("SKU and name are required.");
+  if (item.type === "retail" && !db.settings.retailEnabled) throw new ServiceError("Retail products are disabled. Enable retail sales in Settings first.");
   const dup = db.items.find((i) => i.sku.toLowerCase() === item.sku.trim().toLowerCase() && i.id !== item.id);
   if (dup) throw new ServiceError(`SKU ${item.sku} already exists.`);
   if (item.price < 0 || item.cost < 0) throw new ServiceError("Prices cannot be negative.");
