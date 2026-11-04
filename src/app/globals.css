@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ── Fixerlab design tokens (derived from the supplied logos) ── */
+:root {
+  --brand: #c8202f; /* badge ring / "LAB" crimson — 5.9:1 on white */
+  --brand-hover: #a81a27;
+  --brand-soft: #fdecee;
+  --brand-ink: #ffffff;
+  --ink: #1a1a1c; /* glossy black "F" */
+  --ink-2: #4a4d55;
+  --ink-3: #6b6f78;
+  --silver: #b8bcc2; /* chrome wordmark */
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #f7f8f9;
+  --border: #e3e5e8;
+  --border-strong: #cfd3d8;
+  --focus: #c8202f;
+  --sidebar: #141416;
+  --sidebar-ink: #d9dbdf;
+  --sidebar-muted: #8c9198;
+  --sidebar-active: #26272b;
+  --chart-1: #c8202f;
+  --chart-2: #6b6f78;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --brand: #e5333f;
+  --brand-hover: #f04e59;
+  --brand-soft: #3a1418;
+  --brand-ink: #ffffff;
+  --ink: #f2f2f3;
+  --ink-2: #c3c6cc;
+  --ink-3: #9a9ea6;
+  --silver: #8c9198;
+  --bg: #111214;
+  --surface: #18191c;
+  --surface-2: #1f2024;
+  --border: #2a2c31;
+  --border-strong: #3a3d43;
+  --focus: #f04e59;
+  --sidebar: #0b0b0d;
+  --sidebar-ink: #d9dbdf;
+  --sidebar-muted: #7d828a;
+  --sidebar-active: #1f2024;
+  --chart-1: #e5333f;
+  --chart-2: #9a9ea6;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-silver: var(--silver);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-ink: var(--sidebar-ink);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-active: var(--sidebar-active);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Chakra Petch", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+/* Form fields show focus with their own border + ring. */
+input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+  opacity: 0.4;
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+}
+
+/* ── Printing ──
+   Thermal receipts: 80mm roll (≈72mm printable). Only #print-root is printed. */
+#print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  body > *:not(#print-root) {
+    display: none !important;
+  }
+  #print-root {
+    display: block !important;
+  }
+}
+
+.receipt {
+  width: 72mm;
+  margin: 0 auto;
+  padding: 4mm 0;
+  color: #000;
+  background: #fff;
+  font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.receipt hr {
+  border: 0;
+  border-top: 1px dashed #000;
+  margin: 6px 0;
+}
