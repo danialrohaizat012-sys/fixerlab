@@ -160,14 +160,25 @@ export function saleBalance(db: DbState, sale: Sale): number {
   return sale.total - saleRefunded(db, sale.id) - salePaid(db, sale.id);
 }
 
+/** Deposits received for a job that are not yet applied to an invoice nor returned to the customer. */
+export function heldDeposits(db: DbState, jobId: string): number {
+  let held = 0;
+  for (const p of db.payments) {
+    if (p.repairJobId !== jobId || p.saleId) continue;
+    if (p.kind === "deposit") held += p.amount;
+    else if (p.kind === "refund") held -= p.amount;
+  }
+  return held;
+}
+
 export type PaymentStatus = "unpaid" | "deposit" | "partial" | "paid" | "no_charge";
 
 export function jobFinancials(db: DbState, job: RepairJob) {
   const aq = approvedQuote(db, job.id);
   const quoteTotal = aq ? quoteTotals(aq, db.settings).total : 0;
-  const deposits = db.payments
-    .filter((p) => p.repairJobId === job.id && p.kind === "deposit")
-    .reduce((s, p) => s + p.amount, 0);
+  const deposits = job.saleId
+    ? db.payments.filter((p) => p.repairJobId === job.id && p.kind === "deposit").reduce((s, p) => s + p.amount, 0)
+    : heldDeposits(db, job.id);
   const sale = job.saleId ? db.sales.find((s) => s.id === job.saleId) : undefined;
   let status: PaymentStatus;
   let balance: number;
@@ -323,6 +334,7 @@ export function refundSale(db: DbState, input: RefundInput) {
   if (!can(a.role, "pos.sell") && !can(a.role, "sales.refund")) throw new ServiceError("Permission denied.");
   const auth = verifyOverride(db, input.overridePin, "sales.refund");
   if (!input.reason.trim()) throw new ServiceError("A refund reason is required.");
+  if (!db.settings.paymentMethods.some((m) => m.id === input.methodId)) throw new ServiceError("Invalid refund method.");
   const sale = db.sales.find((s) => s.id === input.saleId);
   if (!sale) throw new ServiceError("Sale not found.");
   const lines = input.lines.filter((l) => l.qty > 0);
@@ -365,6 +377,9 @@ export function refundSale(db: DbState, input: RefundInput) {
   writePayments(db, [{ methodId: input.methodId, amount }], { saleId: sale.id }, "refund");
   const allRefunded = sale.lines.every((l) => l.refundedQty >= l.qty);
   sale.status = allRefunded ? "refunded" : "partially_refunded";
+  if (allRefunded) {
+    for (const w of db.warranties) if (w.saleId === sale.id && !w.voided) w.voided = true; // no warranty on a fully refunded repair
+  }
   audit(db, "sale.refund", `${refundNo} on ${sale.receiptNo}: ${money(amount)} — authorised by ${auth.name}. Reason: ${input.reason}`);
   return refundNo;
 }
@@ -465,6 +480,10 @@ export function updateJob(
     throw new ServiceError("Permission denied.");
   }
   guardSecrets(patch.diagnosis, patch.internalNotes);
+  if (patch.technicianId) {
+    const t = db.staff.find((s) => s.id === patch.technicianId);
+    if (!t || t.role !== "technician" || !t.active) throw new ServiceError("Invalid technician.");
+  }
   if (patch.technicianId !== undefined && patch.technicianId !== job.technicianId) {
     const t = db.staff.find((s) => s.id === patch.technicianId);
     db.statusEvents.unshift({
@@ -507,12 +526,22 @@ export function changeStatus(db: DbState, jobId: string, to: RepairStatus, note?
   if (job.status === "awaiting_approval" && to === "ready") {
     if (!lq || lq.status !== "rejected") throw new ServiceError("Only possible after the customer rejects the quotation.");
   }
-  if (job.status === "quality_check" && db.settings.qcRequiresDifferentPerson && job.technicianId === a.id) {
-    throw new ServiceError("Quality check must be done by someone other than the repairing technician.");
+  if (job.status === "quality_check" && to === "ready" && db.settings.qcRequiresDifferentPerson && job.technicianId === a.id) {
+    throw new ServiceError("Quality check must be passed by someone other than the repairing technician.");
   }
   if (to === "cancelled" && !note?.trim()) throw new ServiceError("A reason is required to cancel a job.");
   guardSecrets(note);
   setStatus(db, job, to, note?.trim() || rule.label);
+  if (to === "cancelled") {
+    // Return any deposit still held for this job, so it is not left as a liability.
+    const held = heldDeposits(db, job.id);
+    if (held > 0) {
+      const method = db.payments.find((p) => p.repairJobId === job.id && p.kind === "deposit")!.methodId;
+      writePayments(db, [{ methodId: method, amount: held }], { repairJobId: job.id }, "refund");
+      db.statusEvents.unshift({ id: uid("se_"), jobId: job.id, from: to, to, actorId: a.id, note: `Deposit ${money(held)} returned to customer`, at: now() });
+      audit(db, "deposit.return", `${job.jobNo}: deposit ${money(held)} returned on cancellation`);
+    }
+  }
 }
 
 // ───────────────────────────── Quotations ─────────────────────────────
@@ -580,6 +609,8 @@ export function recordQuoteDecision(
   const q = db.quotations.find((x) => x.id === quoteId);
   if (!q) throw new ServiceError("Quotation not found.");
   if (q.status !== "sent") throw new ServiceError("Only a sent quotation can be approved or rejected.");
+  const qJob = getJob(db, q.jobId);
+  if (["completed", "cancelled"].includes(qJob.status)) throw new ServiceError("Job is closed.");
   if (new Date(q.validUntil).getTime() < Date.now()) {
     q.status = "expired";
     throw new ServiceError("This quotation has expired. Create a new version.");
@@ -681,7 +712,7 @@ export function collectRepair(db: DbState, jobId: string, input: CollectInput) {
   if (job.status !== "ready") throw new ServiceError("Job must be Ready for Collection.");
   const inv = collectionInvoice(db, job);
   const deposits = db.payments.filter((p) => p.repairJobId === job.id && p.kind === "deposit" && !p.saleId);
-  const depTotal = deposits.reduce((s, p) => s + p.amount, 0);
+  const depTotal = heldDeposits(db, job.id);
   if (input.payments.length) validatePayments(db, input.payments);
   const paying = input.payments.reduce((s, p) => s + p.amount, 0);
   const due = Math.max(0, inv.total - depTotal);
@@ -823,7 +854,16 @@ export function resolveClaim(db: DbState, claimId: string, outcome: "accepted" |
 export function updateSettings(db: DbState, patch: Partial<Settings>) {
   requirePerm(db, "settings.edit");
   if (patch.paymentMethods && !patch.paymentMethods.some((m) => m.active)) throw new ServiceError("At least one payment method must be active.");
-  if (patch.taxRatePct !== undefined && (patch.taxRatePct < 0 || patch.taxRatePct > 100)) throw new ServiceError("Invalid tax rate.");
+  if (patch.taxRatePct !== undefined && !(patch.taxRatePct >= 0 && patch.taxRatePct <= 100)) throw new ServiceError("Invalid tax rate.");
+  if (patch.diagnosisFee !== undefined && !(Number.isInteger(patch.diagnosisFee) && patch.diagnosisFee >= 0)) throw new ServiceError("Diagnosis fee cannot be negative.");
+  if (patch.quoteValidityDays !== undefined && !(Number.isInteger(patch.quoteValidityDays) && patch.quoteValidityDays >= 1)) throw new ServiceError("Quotation validity must be at least 1 day.");
+  if (patch.prefixes) {
+    const vals = Object.values(patch.prefixes);
+    if (vals.some((v) => !/^[A-Z0-9]{2,5}$/.test(v))) throw new ServiceError("Document prefixes must be 2–5 letters or digits.");
+    if (new Set(vals).size !== vals.length) throw new ServiceError("Each document type needs a different prefix.");
+  }
+  if (patch.paymentMethods?.some((m) => !m.name.trim())) throw new ServiceError("Payment method names cannot be empty.");
+  if (patch.businessName !== undefined && !patch.businessName.trim()) throw new ServiceError("Business name is required.");
   Object.assign(db.settings, patch);
   audit(db, "settings.update", Object.keys(patch).join(", "));
 }

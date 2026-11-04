@@ -29,6 +29,7 @@ import {
   addJobPhoto,
   canViewJob,
   changeStatus,
+  heldDeposits,
   jobFinancials,
   jobQuotes,
   latestQuote,
@@ -213,6 +214,7 @@ function StatusDialog({ job, to, onClose }: { job: RepairJob; to: RepairStatus; 
   const rule = TRANSITIONS[job.status].find((t) => t.to === to)!;
   const lq = latestQuote(db, job.id);
   const needsQuote = to === "awaiting_approval" && (!lq || !["draft", "sent"].includes(lq.status));
+  const held = heldDeposits(db, job.id);
   return (
     <Modal
       open
@@ -238,6 +240,7 @@ function StatusDialog({ job, to, onClose }: { job: RepairJob; to: RepairStatus; 
         <StatusBadge status={job.status} /> <ArrowRight className="size-4 text-ink-3" /> <StatusBadge status={to} />
       </div>
       {needsQuote && <Notice tone="warn">Create a quotation in the Quotation tab first.</Notice>}
+      {to === "cancelled" && held > 0 && <Notice tone="warn">The deposit of {money(held)} still held for this job will be recorded as returned to the customer.</Notice>}
       {to === "awaiting_approval" && lq?.status === "draft" && <Notice>Draft quotation {lq.quoteNo} will be marked as sent to the customer.</Notice>}
       <Field label={to === "cancelled" ? "Reason (required)" : "Note (optional)"} className="mt-3">
         <Textarea value={note} onChange={(e) => setNote(e.target.value)} autoFocus />

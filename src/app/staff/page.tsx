@@ -4,6 +4,7 @@ import { Check, Minus } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { can, PERMISSION_LABEL, ROLE_LABEL, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
 import { saveStaff } from "@/lib/services";
+import { fmtDateTime } from "@/lib/format";
 import type { Role } from "@/lib/types";
 import { Badge, Card, CardHeader, Denied, Input, Notice, PageHeader, Select, Table, td, th } from "@/components/ui";
 
@@ -98,6 +99,20 @@ export default function StaffPage() {
           </tbody>
         </Table>
         <p className="border-t border-line px-5 py-3 text-xs text-ink-3">Technicians see only jobs assigned to them and cannot view cost prices, customer lists or financial data.</p>
+      </Card>
+      <Card>
+        <CardHeader title="Audit log" subtitle="Sensitive actions: overrides, refunds, price and stock changes, settings, staff changes, deposit returns." />
+        <ul className="divide-y divide-line">
+          {db.audit.slice(0, 100).map((a) => (
+            <li key={a.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-4 py-2.5 text-sm sm:px-5">
+              <span className="w-40 shrink-0 text-xs text-ink-3">{fmtDateTime(a.at)}</span>
+              <span className="w-24 shrink-0 font-medium">{db.staff.find((s) => s.id === a.actorId)?.name}</span>
+              <span className="font-mono text-xs text-ink-3">{a.action}</span>
+              <span className="min-w-0 flex-1 text-ink-2">{a.detail}</span>
+            </li>
+          ))}
+          {!db.audit.length && <li className="px-5 py-8 text-center text-sm text-ink-3">No audited actions yet in this demo session.</li>}
+        </ul>
       </Card>
     </div>
   );

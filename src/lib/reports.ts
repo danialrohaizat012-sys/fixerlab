@@ -1,7 +1,7 @@
 import type { DbState } from "./types";
 import { myDateKey } from "./format";
 import { OPEN_STATUSES } from "./repair-meta";
-import { jobFinancials, saleBalance } from "./services";
+import { heldDeposits, jobFinancials, saleBalance } from "./services";
 
 /**
  * Revenue rules (avoid double counting):
@@ -73,10 +73,10 @@ export function dashboardStats(db: DbState) {
   const active = db.jobs.filter((j) => OPEN_STATUSES.includes(j.status) && j.status !== "ready");
   const pendingApproval = db.jobs.filter((j) => j.status === "awaiting_approval");
   const ready = db.jobs.filter((j) => j.status === "ready");
-  const lowStock = db.items.filter((i) => i.active && i.stock <= i.minStock);
+  const lowStock = db.items.filter((i) => i.active && (i.type === "part" || db.settings.retailEnabled) && i.stock <= i.minStock);
   const outstandingSales = db.sales.map((s) => ({ s, bal: saleBalance(db, s) })).filter((x) => x.bal > 0);
   const readyBalances = ready.map((j) => ({ j, bal: jobFinancials(db, j).balance })).filter((x) => x.bal > 0);
   const outstanding = outstandingSales.reduce((a, x) => a + x.bal, 0) + readyBalances.reduce((a, x) => a + x.bal, 0);
-  const depositsHeld = db.payments.filter((p) => p.kind === "deposit" && !p.saleId).reduce((a, p) => a + p.amount, 0);
+  const depositsHeld = db.jobs.reduce((a, j) => a + Math.max(0, heldDeposits(db, j.id)), 0);
   return { today: t, month: m, active, pendingApproval, ready, lowStock, outstanding, outstandingSales, readyBalances, depositsHeld };
 }

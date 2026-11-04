@@ -6,7 +6,7 @@ import { useState } from "react";
 import { ArrowLeft, Pencil, Phone, Mail, ClipboardPlus } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { can } from "@/lib/permissions";
-import { jobFinancials, saleBalance } from "@/lib/services";
+import { heldDeposits, jobFinancials, saleBalance } from "@/lib/services";
 import { cx, fmtDate, money } from "@/lib/format";
 import { Badge, Button, Card, CardHeader, Denied, SampleChip, StatusBadge, Tabs, Table, td, th } from "@/components/ui";
 import { DeviceIcon, PaymentChip } from "@/components/repair-bits";
@@ -29,7 +29,7 @@ export default function CustomerDetail() {
   const warranties = db.warranties.filter((w) => w.customerId === c.id);
   const spent = sales.reduce((a, s) => a + s.total, 0);
   const outstandingSales = sales.reduce((a, s) => a + Math.max(0, saleBalance(db, s)), 0);
-  const deposits = db.payments.filter((p) => p.kind === "deposit" && !p.saleId && jobs.some((j) => j.id === p.repairJobId)).reduce((a, p) => a + p.amount, 0);
+  const deposits = jobs.reduce((a, j) => a + Math.max(0, heldDeposits(db, j.id)), 0);
 
   return (
     <div>

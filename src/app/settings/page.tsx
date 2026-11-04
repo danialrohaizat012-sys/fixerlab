@@ -16,6 +16,7 @@ export default function SettingsPage() {
   const [newRetailCat, setNewRetailCat] = useState("");
   const [newPartCat, setNewPartCat] = useState("");
   const [rule, setRule] = useState({ name: "", days: "", terms: "" });
+  const [taxText, setTaxText] = useState(String(db.settings.taxRatePct));
   if (!can(me.role, "settings.edit")) return <Denied what="change system settings" />;
   const set = (p: Partial<Settings>) => setS((x) => ({ ...x, ...p }));
   const dirty = JSON.stringify(s) !== JSON.stringify(db.settings);
@@ -64,7 +65,16 @@ export default function SettingsPage() {
                 <Input value={s.taxLabel} onChange={(e) => set({ taxLabel: e.target.value })} />
               </Field>
               <Field label="Rate (%)">
-                <Input inputMode="decimal" value={s.taxRatePct} onChange={(e) => set({ taxRatePct: parseFloat(e.target.value) || 0 })} className="num text-right" />
+                <Input
+                  inputMode="decimal"
+                  value={taxText}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^0-9.]/g, "");
+                    setTaxText(v);
+                    set({ taxRatePct: parseFloat(v) || 0 });
+                  }}
+                  className="num text-right"
+                />
               </Field>
             </div>
           </div>
@@ -207,7 +217,7 @@ export default function SettingsPage() {
       {dirty && (
         <div className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-end gap-3 border-t border-line bg-surface px-5 py-3 shadow-lg lg:left-64">
           <span className="text-sm text-ink-3">Unsaved changes{s.diagnosisFee !== db.settings.diagnosisFee ? ` · diagnosis fee ${money(s.diagnosisFee)}` : ""}</span>
-          <Button onClick={() => setS(structuredClone(db.settings))}>Discard</Button>
+          <Button onClick={() => { setS(structuredClone(db.settings)); setTaxText(String(db.settings.taxRatePct)); }}>Discard</Button>
           <Button variant="primary" icon={<Save className="size-4" />} onClick={() => run((d) => updateSettings(d, s), "Settings saved")}>
             Save settings
           </Button>
